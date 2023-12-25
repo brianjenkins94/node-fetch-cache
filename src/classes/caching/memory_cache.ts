@@ -6,15 +6,12 @@ import { KeyTimeout } from './key_timeout.js';
 
 async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
   const chunks: Buffer[] = [];
-  return new Promise((resolve, reject) => {
-    stream.on('data', chunk =>
-      chunks.push(chunk as Buffer),
-    ).on('error', error => {
-      reject(error);
-    }).on('end', () => {
-      resolve(Buffer.concat(chunks));
-    });
-  });
+
+  for await (const chunk of stream) {
+    chunks.push(chunk as Buffer);
+  }
+
+  return Buffer.concat(chunks);
 }
 
 export class MemoryCache implements INodeFetchCacheCache {

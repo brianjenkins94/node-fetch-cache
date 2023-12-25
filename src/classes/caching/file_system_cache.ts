@@ -79,13 +79,14 @@ export class FileSystemCache implements INodeFetchCacheCache {
 
     try {
       metaToStore.bodyStreamIntegrity = await new Promise((fulfill, reject) => {
-        bodyStream.pipe(cacache.put.stream(this.cacheDirectory, bodyKey))
+        (bodyStream as any).pipeTo(cacache.put.stream(this.cacheDirectory, bodyKey)
           .on('integrity', (i: string) => {
             fulfill(i);
           })
           .on('error', (error: Error) => {
             reject(error);
-          });
+          }),
+        );
       });
     } catch (error: any) {
       if (error.code !== 'ENODATA') {

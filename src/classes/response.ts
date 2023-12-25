@@ -13,10 +13,10 @@ export class NFCResponse extends NodeFetchResponse {
       url: response.url,
       status: response.status,
       statusText: response.statusText,
-      headers: response.headers.raw(),
+      headers: response.headers.raw ? response.headers.raw() : Object.fromEntries((response as any).headers.entries()),
       size: response.size,
       timeout: response.timeout,
-      counter: (response as any)[responseInternalSymbol!].counter as number,
+      counter: (response as any)[responseInternalSymbol!]?.counter as number,
     };
 
     return metaData;

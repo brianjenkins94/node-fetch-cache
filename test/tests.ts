@@ -85,13 +85,20 @@ async function dualFetch(...args: Parameters<typeof standardFetch>) {
   return { cachedFetchResponse, standardFetchResponse };
 }
 
+let timeoutHandle: NodeJS.Timeout = 0 as unknown as NodeJS.Timeout;
+let response: NFCResponse;
+
 beforeEach(async () => {
   rimraf.sync(CACHE_PATH);
   defaultCache = new MemoryCache();
   defaultCachedFetch = FetchCache.create({ cache: defaultCache });
+  timeoutHandle = setTimeout(() => undefined, 120_000);
 });
 
-let response: NFCResponse;
+afterEach(async () => {
+  clearTimeout(timeoutHandle ?? 0);
+  rimraf.sync(CACHE_PATH);
+});
 
 describe('Basic property tests', () => {
   it('Has a status property', async () => {

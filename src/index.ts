@@ -1,4 +1,4 @@
-import fetch, { Request as NodeFetchRequest } from 'node-fetch';
+import { Request as NodeFetchRequest } from 'node-fetch';
 import FormData from 'form-data';
 import locko from 'locko';
 import { NFCResponse } from './classes/response.js';
@@ -59,7 +59,7 @@ async function getResponse(
       );
     }
 
-    const fetchResponse = await fetch(resource, init);
+    const fetchResponse = await (global.fetch as any)(resource, init) as any;
     const serializedMeta = NFCResponse.serializeMetaFromNodeFetchResponse(fetchResponse);
     let bodyStream = fetchResponse.body;
 
