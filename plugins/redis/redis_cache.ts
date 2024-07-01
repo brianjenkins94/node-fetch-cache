@@ -29,21 +29,18 @@ export class RedisCache implements INodeFetchCacheCache {
   }
 
   async get(key: string) {
-    const cachedObjectInfo = await this.redis.getBuffer(key);
+    const [cachedObjectInfo, storedMetadata] = await Promise.all([
+      this.redis.getBuffer(key),
+      this.redis.get(`${key}:meta`),
+    ]);
 
-    if (cachedObjectInfo === null) {
+    if (cachedObjectInfo === null || !storedMetadata) {
       return undefined;
     }
 
     const readableStream = Readable.from(cachedObjectInfo);
-    const storedMetadata = await this.redis.get(`${key}:meta`);
-
-    if (!storedMetadata) {
-      return undefined;
-    }
-
     const storedMetadataJson = JSON.parse(storedMetadata) as StoredMetadata;
-    const { expiration, ...nfcMetadata } = storedMetadataJson;
+    const nfcMetadata = storedMetadataJson;
 
     return {
       bodyStream: readableStream,
@@ -52,21 +49,15 @@ export class RedisCache implements INodeFetchCacheCache {
   }
 
   async remove(key: string) {
-    await this.redis.del(key);
-    await this.redis.del(`${key}:meta`);
+    await Promise.all([
+      this.redis.del(key),
+      this.redis.del(`${key}:meta`),
+    ]);
+
     return true;
   }
 
   async set(key: string, bodyStream: NodeJS.ReadableStream, metaData: NFCResponseMetadata) {
-    const metaToStore = {
-      ...metaData,
-      expiration: undefined as undefined | number,
-    };
-
-    if (typeof this.ttl === 'number') {
-      metaToStore.expiration = Date.now() + this.ttl;
-    }
-
     const buffer: Buffer = await new Promise((fulfill, reject) => {
       const chunks: Buffer[] = [];
 
@@ -87,15 +78,21 @@ export class RedisCache implements INodeFetchCacheCache {
       });
     });
 
-    await (typeof this.ttl === 'number' ? this.redis.set(key, buffer, 'PX', this.ttl) : this.redis.set(key, buffer));
-
-    if (metaToStore) {
-      await (typeof this.ttl === 'number' ? this.redis.set(`${key}:meta`, JSON.stringify(metaToStore), 'PX', this.ttl) : this.redis.set(`${key}:meta`, JSON.stringify(metaToStore)));
+    if (typeof this.ttl === 'number') {
+      await Promise.all([
+        this.redis.set(key, buffer, 'PX', this.ttl),
+        this.redis.set(`${key}:meta`, JSON.stringify(metaData), 'PX', this.ttl),
+      ]);
+    } else {
+      await Promise.all([
+        this.redis.set(key, buffer),
+        this.redis.set(`${key}:meta`, JSON.stringify(metaData)),
+      ]);
     }
 
     return {
       bodyStream: Readable.from(buffer),
-      metaData: metaToStore,
+      metaData,
     };
   }
 }
